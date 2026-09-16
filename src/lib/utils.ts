@@ -28,26 +28,51 @@ export function truncate(str: string, length: number): string {
   return str.slice(0, length) + "...";
 }
 
+let hasLoggedSiteUrlConfig = false;
+
 /**
  * Safely resolves the public browser-facing base URL of the application.
  * Prevents returning 0.0.0.0 as a browser-facing host.
  */
 export function getPublicSiteUrl(): string {
-  // 1. Explicit env variables (NEXT_PUBLIC_SITE_URL or NEXT_PUBLIC_APP_URL)
-  const envUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
-  if (envUrl) {
-    const sanitized = envUrl.replace("0.0.0.0", "localhost").replace(/\/$/, "");
+  if (!hasLoggedSiteUrlConfig) {
+    hasLoggedSiteUrlConfig = true;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "(NOT SET)";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "(NOT SET)";
+    const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL || "(NOT SET)";
+    console.log(
+      `[CONFIG] NEXT_PUBLIC_SITE_URL: ${siteUrl} | NEXT_PUBLIC_APP_URL: ${appUrl} | VERCEL_URL: ${vercelUrl}`
+    );
+  }
+
+  // 1. Explicit environment variable (NEXT_PUBLIC_SITE_URL)
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    const sanitized = process.env.NEXT_PUBLIC_SITE_URL.replace("0.0.0.0", "localhost").replace(/\/$/, "");
     if (sanitized) return sanitized;
   }
 
-  // 2. Client-side window.location.origin if valid
+  // 2. Client-side window.location.origin if available (always accurate in browser context)
   if (typeof window !== "undefined" && window.location.origin) {
     const origin = window.location.origin;
     const sanitizedOrigin = origin.replace("0.0.0.0", "localhost").replace(/\/$/, "");
     if (sanitizedOrigin) return sanitizedOrigin;
   }
 
-  // 3. Fallback for local development
+  // 3. Automatic Vercel deployment URL environment variables
+  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL || process.env.VERCEL_URL;
+  if (vercelUrl) {
+    const host = vercelUrl.replace("0.0.0.0", "localhost").replace(/\/$/, "");
+    const urlWithProto = host.startsWith("http://") || host.startsWith("https://") ? host : `https://${host}`;
+    return urlWithProto;
+  }
+
+  // 4. Fallback environment variable (NEXT_PUBLIC_APP_URL)
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    const sanitized = process.env.NEXT_PUBLIC_APP_URL.replace("0.0.0.0", "localhost").replace(/\/$/, "");
+    if (sanitized) return sanitized;
+  }
+
+  // 5. Fallback for local development
   return "http://localhost:3000";
 }
 

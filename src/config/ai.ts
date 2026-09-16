@@ -1,11 +1,23 @@
 /**
- * Future AI Integration Configuration (Placeholder for Groq / LLM Integration in Future Module)
+ * AI Integration Configuration
+ * Primary Provider: Google Gemini (OpenAI-compatible endpoint)
+ * Fallback Provider: NVIDIA NIM Hosted API
  */
 
 export const aiConfig = {
-  provider: "nvidia-nim" as const,
-  baseUrl: process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1",
-  model: process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct",
+  primaryProvider: "gemini" as const,
+  fallbackProvider: "nvidia-nim" as const,
+  provider: "gemini" as const,
+  baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai/",
+  model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+  gemini: {
+    baseUrl: process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai/",
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+  },
+  nvidia: {
+    baseUrl: process.env.NVIDIA_BASE_URL || process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1",
+    model: process.env.NVIDIA_MODEL || process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct",
+  },
   temperature: 0.7,
   maxTokens: 4096,
   embeddingModel: "text-embedding-3-small",

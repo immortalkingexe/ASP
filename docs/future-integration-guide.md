@@ -32,10 +32,10 @@ This guide outlines how future development modules will plug into the Module 1 f
 
 ---
 
-## Module 5: AI Engine & RAG Integration (Groq API)
+## Module 5: AI Engine & RAG Integration (NVIDIA NIM API)
 - **Target Feature**: `src/features/chat/`, `src/features/flashcards/`, `src/features/quizzes/`
 - **Integration Points**:
-  1. Connect `GROQ_API_KEY` to Groq SDK client in `src/services/ai/groq.ts`.
+  1. Connect `NVIDIA_API_KEY` to NVIDIA NIM client in `src/services/ai/nvidia-nim-provider.ts`.
   2. Implement vector store embeddings for document chunk querying (RAG architecture).
   3. Wire AI streaming chat hook into `src/features/chat/hooks/use-ai-chat.ts`.
   4. Generate flashcards and practice quizzes via structured JSON output prompts.

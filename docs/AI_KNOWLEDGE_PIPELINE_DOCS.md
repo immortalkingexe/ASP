@@ -20,7 +20,7 @@ Document Uploaded → Validation → Text Extraction → Cleaning → Chunking �
 3. **Chunking**:
    - `DocumentChunkingService`: Semantic, heading-aware chunking algorithm splitting text by heading boundaries (`#`, `##`, uppercase headings) with a target character budget (~1000 chars / ~250 tokens per chunk) and sliding window overlap (~150 chars).
 4. **Metadata Generation**:
-   - `MetadataGenerationService`: Extracts document-level metadata (Title, Author, Subject, Keywords, Language, Reading Time, Estimated Tokens). Leverages **Groq LLM** (`llama-3.3-70b-versatile`) when configured, backed by rule-based heuristic fallback.
+   - `MetadataGenerationService`: Extracts document-level metadata (Title, Author, Subject, Keywords, Language, Reading Time, Estimated Tokens). Leverages **NVIDIA NIM LLM** (`meta/llama-3.3-70b-instruct`) when configured, backed by rule-based heuristic fallback.
 5. **Embedding Preparation**:
    - `EmbeddingProvider` abstraction layer allowing pluggable backends (`OpenAIEmbeddingProvider`, `VoyageEmbeddingProvider`, `LocalMockEmbeddingProvider`, `HuggingFaceEmbeddingProvider`).
 6. **Knowledge Storage**:
@@ -98,5 +98,5 @@ const searchResults = await RetrievalService.searchWorkspaceChunks(workspaceId, 
 ## 7. Security & Isolation
 
 - **Workspace Isolation**: RLS policies enforce that users can only query or process document chunks belonging to workspaces they own (`auth.uid() = owner_id`).
-- **API Key Protection**: Groq API keys (`GROQ_API_KEY`) and embedding keys remain strictly server-side; keys are never sent to the browser.
+- **API Key Protection**: NVIDIA API keys (`NVIDIA_API_KEY`) and embedding keys remain strictly server-side; keys are never sent to the browser.
 - **Fail-safe Fallbacks**: Heuristic fallbacks ensure offline / local mode functionality without API failures.

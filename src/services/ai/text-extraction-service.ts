@@ -89,13 +89,12 @@ export class TextExtractionService {
           }
         }
       } catch (unstructuredErr: any) {
+        const message = unstructuredErr?.message || "Extraction service failed";
         console.error(
           `[TextExtractionService Error] Extraction service failed for "${originalFileName}":`,
-          unstructuredErr?.message || unstructuredErr
+          message
         );
-        throw new Error(
-          `Document extraction service error: ${unstructuredErr?.message || "Extraction service failed"}`
-        );
+        throw new Error(message);
       }
     }
 

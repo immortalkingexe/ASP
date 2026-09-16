@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { RetrievalService, SearchResultChunk } from "@/services/ai/retrieval-service";
 import { ChatService, CitationItem } from "@/services/db/chat-service";
+import { GeminiProvider } from "@/services/ai/gemini-provider";
 import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
 import { sanitizeHumanReadableText, isValidChunkText } from "@/lib/text-sanitizer";
 
@@ -10,29 +11,20 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const requestStartTime = performance.now();
-  let provider = "nvidia-nim";
-  let model = NvidiaNimProvider.getModel();
+  let provider = "gemini";
+  let model = GeminiProvider.getModel();
   let currentStep = "Initialization";
 
   try {
     // 1. Step 1: Environment Variables & Provider Selection
     currentStep = "Loading environment variables";
-    let apiKey = process.env.NVIDIA_API_KEY;
-    const isNvidiaKeySet = Boolean(process.env.NVIDIA_API_KEY);
+    const geminiKey = GeminiProvider.getApiKey();
+    const nvidiaKey = NvidiaNimProvider.getApiKey();
+    const isGeminiKeySet = Boolean(geminiKey);
+    const isNvidiaKeySet = Boolean(nvidiaKey);
 
-    if (process.env.AI_PROVIDER) {
-      provider = process.env.AI_PROVIDER.toLowerCase();
-    } else if (isNvidiaKeySet) {
-      provider = "nvidia-nim";
-      model = NvidiaNimProvider.getModel();
-    } else if (process.env.GROQ_API_KEY) {
-      provider = "groq";
-      model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-      apiKey = process.env.GROQ_API_KEY;
-    }
-
-    if (!isNvidiaKeySet && provider === "nvidia-nim") {
-      console.error("[NVIDIA NIM Config Error] NVIDIA_API_KEY is not configured.");
+    if (!isGeminiKeySet && !isNvidiaKeySet) {
+      console.error("[AI Config Error] Neither GEMINI_API_KEY nor NVIDIA_API_KEY is configured.");
     }
 
     // 2. Step 2: Supabase Auth Check
@@ -291,11 +283,11 @@ ANSWERING RULES:
     ];
 
     // Check API Key Presence
-    if (!apiKey || apiKey === "YOUR_NVIDIA_API_KEY") {
+    if ((!geminiKey || geminiKey === "YOUR_GEMINI_API_KEY") && (!nvidiaKey || nvidiaKey === "YOUR_NVIDIA_API_KEY")) {
       const fallbackText = searchResults.length > 0
         ? `Here is the information found in your documents:\n\n` +
           searchResults.map((r, i) => `**Source ${i + 1} (${docMap.get(r.chunk.document_id)}):**\n${r.chunk.content}`).join("\n\n")
-        : `NVIDIA_API_KEY is not configured in .env.local. Please add your NVIDIA API key to enable live AI chat generation.`;
+        : `AI API key is not configured in .env.local. Please add your GEMINI_API_KEY or NVIDIA_API_KEY to enable live AI chat generation.`;
 
       if (conversationId) {
         await ChatService.addMessage(
@@ -328,84 +320,124 @@ ANSWERING RULES:
       });
     }
 
-    // 6. Step 6: Calling LLM Endpoint with Failover
+    // 6. Step 6: Calling LLM Endpoint (Gemini Primary -> NVIDIA NIM Fallback)
     currentStep = "Calling LLM API";
     const llmStart = performance.now();
-    let apiUrl = "https://integrate.api.nvidia.com/v1/chat/completions";
-    let targetApiKey = apiKey;
-    let targetModel = model;
-
-    if (provider === "groq") {
-      apiUrl = "https://api.groq.com/openai/v1/chat/completions";
-    }
 
     let llmResponse: Response | null = null;
     let fetchErrorMsg: string | null = null;
+    let activeProvider: "gemini" | "nvidia-nim" | null = null;
+    let activeModel: string = "";
 
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
+    // 6a. Attempt Primary Provider: Gemini (OpenAI-compatible)
+    if (geminiKey && geminiKey !== "YOUR_GEMINI_API_KEY") {
+      const geminiModel = GeminiProvider.getModel();
+      const geminiBaseUrl = GeminiProvider.getBaseUrl();
+      const geminiApiUrl = `${geminiBaseUrl.replace(/\/$/, "")}/chat/completions`;
 
-      llmResponse = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${targetApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: targetModel,
-          messages: conversationMessages,
-          temperature: 0.2,
-          max_tokens: 1024,
-          stream: true,
-        }),
-        signal: controller.signal,
-      });
+      console.log("[LLM] Primary provider: gemini");
+      console.log(`[LLM] Model: ${geminiModel}`);
 
-      clearTimeout(timer);
-    } catch (err: any) {
-      fetchErrorMsg = err?.message || String(err);
-      console.error(`[LLM Connection Exception] Provider "${provider}" fetch failed:`, fetchErrorMsg);
-    }
-
-    // Secondary Failover to Groq if Primary NVIDIA connection times out or fails
-    if ((!llmResponse || !llmResponse.ok) && process.env.GROQ_API_KEY && provider !== "groq") {
-      console.log(`[Failover] Primary provider "${provider}" connection issue. Failing over to Groq API...`);
       try {
-        apiUrl = "https://api.groq.com/openai/v1/chat/completions";
-        targetApiKey = process.env.GROQ_API_KEY;
-        targetModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-        provider = "groq";
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 18000);
 
-        llmResponse = await fetch(apiUrl, {
+        const res = await fetch(geminiApiUrl, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${targetApiKey}`,
+            "Authorization": `Bearer ${geminiKey}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: targetModel,
+            model: geminiModel,
             messages: conversationMessages,
             temperature: 0.2,
             max_tokens: 1024,
             stream: true,
           }),
+          signal: controller.signal,
         });
-      } catch (failoverErr: any) {
-        console.error(`[Failover Error] Secondary Groq provider fetch failed:`, failoverErr?.message);
+
+        clearTimeout(timer);
+
+        if (res.ok) {
+          llmResponse = res;
+          activeProvider = "gemini";
+          activeModel = geminiModel;
+          provider = "gemini";
+          model = geminiModel;
+        } else {
+          const errText = await res.text();
+          console.warn(`[Gemini Stream Error] HTTP ${res.status}:`, errText);
+        }
+      } catch (err: any) {
+        console.error("[Gemini Connection Exception]:", err?.message || err);
+      }
+    }
+
+    // 6b. Fallback Provider: NVIDIA NIM (if Gemini was unconfigured or failed)
+    if (!llmResponse || !llmResponse.ok) {
+      console.warn("[LLM] Gemini failed, attempting NVIDIA NIM fallback");
+
+      if (nvidiaKey && nvidiaKey !== "YOUR_NVIDIA_API_KEY") {
+        const nvidiaModel = NvidiaNimProvider.getModel();
+        const nvidiaBaseUrl = NvidiaNimProvider.getBaseUrl();
+        const nvidiaApiUrl = `${nvidiaBaseUrl.replace(/\/$/, "")}/chat/completions`;
+
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 18000);
+
+          const res = await fetch(nvidiaApiUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${nvidiaKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: nvidiaModel,
+              messages: conversationMessages,
+              temperature: 0.2,
+              max_tokens: 1024,
+              stream: true,
+            }),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timer);
+
+          if (res.ok) {
+            console.log("[LLM] Fallback provider: nvidia-nim");
+            console.log(`[LLM] Model: ${nvidiaModel}`);
+            llmResponse = res;
+            activeProvider = "nvidia-nim";
+            activeModel = nvidiaModel;
+            provider = "nvidia-nim";
+            model = nvidiaModel;
+          } else {
+            const errText = await res.text();
+            fetchErrorMsg = `HTTP ${res.status}: ${errText}`;
+            console.error(`[NVIDIA NIM Stream Error] HTTP ${res.status}:`, errText);
+          }
+        } catch (err: any) {
+          fetchErrorMsg = err?.message || String(err);
+          console.error("[NVIDIA NIM Connection Exception]:", fetchErrorMsg);
+        }
+      } else {
+        fetchErrorMsg = "NVIDIA NIM fallback is not configured.";
       }
     }
 
     if (!llmResponse || !llmResponse.ok) {
-      const errText = llmResponse ? await llmResponse.text() : fetchErrorMsg || "Network connection timeout";
       const status = llmResponse ? llmResponse.status : 504;
-      console.error(`[LLM Failure] Final Provider "${provider}" (Model "${targetModel}") returned HTTP ${status}:`, errText);
+      const finalErrorDetail = fetchErrorMsg || "Both Gemini and NVIDIA NIM AI providers failed.";
+      console.error(`[LLM Failure] Both providers failed. Final status ${status}:`, finalErrorDetail);
 
       let userErrorMessage = "AI service is temporarily unavailable. Please try again.";
       if (status === 401 || status === 403) {
         userErrorMessage = "API authentication failed.";
       } else if (status === 404) {
-        userErrorMessage = `Selected model or endpoint was not found (${targetModel}).`;
+        userErrorMessage = `Selected model or endpoint was not found (${model}).`;
       } else if (status === 429) {
         userErrorMessage = "API rate limit reached. Please try again later.";
       } else if (status === 504) {
@@ -415,10 +447,10 @@ ANSWERING RULES:
       return NextResponse.json(
         {
           error: userErrorMessage,
-          provider,
-          model: targetModel,
+          provider: activeProvider || "gemini",
+          model: activeModel || model,
           status,
-          ...(process.env.NODE_ENV === "development" ? { details: errText } : {}),
+          ...(process.env.NODE_ENV === "development" ? { details: finalErrorDetail } : {}),
         },
         { status: status >= 500 ? 502 : status }
       );
@@ -443,7 +475,7 @@ ANSWERING RULES:
 
     const stream = new ReadableStream({
       async start(controller) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "metadata", answerSource, mode: responseMode, confidenceLevel, topScore: retrievalResult.topScore })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "metadata", answerSource, mode: responseMode, confidenceLevel, topScore: retrievalResult.topScore, provider: activeProvider || provider, model: activeModel || model })}\n\n`));
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "citations", citations })}\n\n`));
 
 
@@ -530,8 +562,8 @@ ANSWERING RULES:
               `data: ${JSON.stringify({
                 type: "error",
                 error: "Streaming interrupted.",
-                provider,
-                model: targetModel,
+                provider: activeProvider || provider,
+                model: activeModel || model,
               })}\n\n`
             )
           );

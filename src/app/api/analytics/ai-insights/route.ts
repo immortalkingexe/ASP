@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
+import { AiFallbackService } from "@/services/ai/ai-fallback-service";
 
 export interface AIAnalyticsInsightResponse {
   summary: string;
@@ -78,7 +78,7 @@ Guidelines:
 
 Generate structured study insights in JSON format.`;
 
-    const aiResult = await NvidiaNimProvider.completeJson<AIAnalyticsInsightResponse>(
+    const { result: aiResult } = await AiFallbackService.completeJson<AIAnalyticsInsightResponse>(
       userPrompt,
       systemPrompt
     );

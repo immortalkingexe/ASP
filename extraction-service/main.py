@@ -18,6 +18,7 @@ import json
 import csv
 import xml.etree.ElementTree as ET
 
+from fastapi.middleware.cors import CORSMiddleware
 from ebooklib import epub
 from odf import text, teletype
 from odf.opendocument import load as odf_load
@@ -27,6 +28,22 @@ app = FastAPI(
     title="ASP Document Extraction Service",
     version="2.0.0",
     description="Universal document extraction service for ASP"
+)
+
+# Configure CORS to explicitly allow Vercel production domain and local development origins
+allowed_origins = [
+    "https://asp-automated-student-planner-745q3912n.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

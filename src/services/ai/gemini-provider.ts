@@ -1,14 +1,14 @@
 /**
- * NVIDIA NIM Hosted API Integration Provider
- * Configurable via server-side NVIDIA_API_KEY, NVIDIA_BASE_URL, and NVIDIA_MODEL environment variables.
+ * Google Gemini API Integration Provider (Primary LLM Provider)
+ * Utilizes Gemini's OpenAI-compatible endpoint with gemini-2.5-flash.
  *
- * Base URL: https://integrate.api.nvidia.com/v1
+ * Base URL: https://generativelanguage.googleapis.com/v1beta/openai/
  * Chat Endpoint: POST /chat/completions
  *
  * NEVER expose the API key to client-side code or browser logs.
  */
 
-export interface NvidiaNimCompletionOptions {
+export interface GeminiCompletionOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
@@ -16,45 +16,45 @@ export interface NvidiaNimCompletionOptions {
   timeoutMs?: number;
 }
 
-export interface NvidiaNimMessage {
+export interface GeminiMessage {
   role: "system" | "user" | "assistant";
   content: string;
 }
 
-export class NvidiaNimProvider {
+export class GeminiProvider {
   /**
-   * Get server-side NVIDIA API Key lazily.
+   * Get server-side Gemini API Key lazily.
    */
   public static getApiKey(): string | null {
     if (typeof window !== "undefined") {
-      throw new Error("NVIDIA_API_KEY must ONLY be accessed on the server side.");
+      throw new Error("GEMINI_API_KEY must ONLY be accessed on the server side.");
     }
-    return process.env.NVIDIA_API_KEY || null;
+    return process.env.GEMINI_API_KEY || null;
   }
 
   /**
-   * Get Base URL for NVIDIA NIM Hosted API lazily.
+   * Get Base URL for Gemini OpenAI-compatible API lazily.
    */
   public static getBaseUrl(): string {
-    return process.env.NVIDIA_BASE_URL || process.env.NVIDIA_NIM_BASE_URL || "https://integrate.api.nvidia.com/v1";
+    return process.env.GEMINI_BASE_URL || "https://generativelanguage.googleapis.com/v1beta/openai/";
   }
 
   /**
-   * Get target model for NVIDIA NIM lazily.
+   * Get target model for Gemini lazily.
    */
   public static getModel(): string {
-    return process.env.NVIDIA_MODEL || process.env.NVIDIA_NIM_MODEL || "meta/llama-3.3-70b-instruct";
+    return process.env.GEMINI_MODEL || "gemini-2.5-flash";
   }
 
   /**
-   * Check if NVIDIA NIM API is configured on the server.
+   * Check if Gemini API is configured on the server.
    */
   public static isConfigured(): boolean {
-    return typeof window === "undefined" && Boolean(process.env.NVIDIA_API_KEY);
+    return typeof window === "undefined" && Boolean(process.env.GEMINI_API_KEY);
   }
 
   /**
-   * Server-side health diagnostic method checking API key, model, and endpoint connectivity.
+   * Server-side health diagnostic checking Gemini API key, model, and endpoint connectivity.
    */
   public static async checkHealth(): Promise<{
     provider: string;
@@ -71,7 +71,7 @@ export class NvidiaNimProvider {
     const model = this.getModel();
 
     const result = {
-      provider: "nvidia-nim",
+      provider: "gemini",
       apiKeyConfigured: Boolean(apiKey),
       baseUrlConfigured: Boolean(baseUrl),
       modelConfigured: Boolean(model),
@@ -81,12 +81,12 @@ export class NvidiaNimProvider {
     };
 
     if (!apiKey) {
-      return { ...result, errorDetails: "NVIDIA_API_KEY is not configured" };
+      return { ...result, errorDetails: "GEMINI_API_KEY is not configured" };
     }
 
     try {
-      // 1. Check Chat Completion with 1 token
-      const compRes = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
+      const compRes = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -120,16 +120,15 @@ export class NvidiaNimProvider {
   }
 
   /**
-   * Non-streaming completion request with timeout and failover support.
+   * Non-streaming completion request with timeout support.
    */
   public static async complete(
     prompt: string,
     systemPrompt: string = "You are an expert educational AI assistant.",
-    options: NvidiaNimCompletionOptions = {}
+    options: GeminiCompletionOptions = {}
   ): Promise<string | null> {
     const apiKey = this.getApiKey();
     if (!apiKey) {
-      console.warn("[NVIDIA NIM Provider] NVIDIA_API_KEY is not configured.");
       return null;
     }
 
@@ -167,7 +166,7 @@ export class NvidiaNimProvider {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error(`[NVIDIA NIM Provider] HTTP ${response.status} for model "${model}":`, errText);
+        console.error(`[Gemini Provider] HTTP ${response.status} for model "${model}":`, errText);
         return null;
       }
 
@@ -176,18 +175,18 @@ export class NvidiaNimProvider {
       return text ? text.trim() : null;
     } catch (err: any) {
       clearTimeout(timer);
-      console.error(`[NVIDIA NIM Provider Exception] (${err?.name || "FetchError"}):`, err?.message || err);
+      console.error(`[Gemini Provider Exception] (${err?.name || "FetchError"}):`, err?.message || err);
       return null;
     }
   }
 
   /**
-   * Extract JSON structure using NVIDIA NIM
+   * Extract JSON structure using Gemini.
    */
   public static async completeJson<T>(
     prompt: string,
     systemPrompt: string = "You extract structured JSON metadata from text.",
-    options: NvidiaNimCompletionOptions = {}
+    options: GeminiCompletionOptions = {}
   ): Promise<T | null> {
     const raw = await this.complete(prompt, systemPrompt, {
       responseFormat: { type: "json_object" },

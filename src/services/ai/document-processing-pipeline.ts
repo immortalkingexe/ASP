@@ -108,7 +108,7 @@ export class DocumentProcessingPipeline {
       }
       console.log(`[Document Chunking Success] Generated ${chunks.length} chunks`);
 
-      // 6. Stage: Metadata Generation (via Groq LLM or heuristic fallback)
+      // 6. Stage: Metadata Generation (via Gemini primary or NVIDIA NIM fallback)
       console.log(`[Metadata Generation] Extracting document metadata and AI topics`);
       const metadata = await MetadataGenerationService.generateMetadata(
         fileName,

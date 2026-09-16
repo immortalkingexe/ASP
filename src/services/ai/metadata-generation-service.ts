@@ -1,11 +1,10 @@
 /**
  * Metadata Generation Service
  * Extracts metadata (Title, Author, Subject, Keywords, Language, Reading Time, Token Counts)
- * using Groq LLM when available, backed by heuristic fallback rules.
+ * using NVIDIA NIM LLM when available, backed by heuristic fallback rules.
  */
 
-import { NvidiaNimProvider } from "./nvidia-nim-provider";
-import { GroqProvider } from "./groq-provider";
+import { AiFallbackService } from "./ai-fallback-service";
 import { DocumentChunkingService } from "./document-chunking-service";
 
 export interface DocumentMetadata {
@@ -43,11 +42,8 @@ export class MetadataGenerationService {
     let keywords: string[] = this.extractHeuristicKeywords(rawText, headings);
     let language = this.detectLanguageHeuristic(rawText);
 
-    // AI Enrichment via NVIDIA NIM (or fallback Groq) if configured
-    const isNvidiaConfigured = NvidiaNimProvider.isConfigured();
-    const isGroqConfigured = GroqProvider.isConfigured();
-
-    if ((isNvidiaConfigured || isGroqConfigured) && rawText.length > 50) {
+    // AI Enrichment via Gemini (Primary) or NVIDIA NIM (Fallback)
+    if (rawText.length > 50) {
       const sampleText = rawText.slice(0, 2000);
       const prompt = `Analyze this document text sample and extract key metadata in valid JSON format:
 Text Sample:
@@ -72,9 +68,7 @@ Return JSON matching this exact structure:
         language?: string;
       };
 
-      const aiMeta = isNvidiaConfigured
-        ? await NvidiaNimProvider.completeJson<MetaResult>(prompt)
-        : await GroqProvider.completeJson<MetaResult>(prompt);
+      const { result: aiMeta } = await AiFallbackService.completeJson<MetaResult>(prompt);
 
       if (aiMeta) {
         if (aiMeta.suggestedTitle && aiMeta.suggestedTitle.length > 3) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { GeminiProvider } from "@/services/ai/gemini-provider";
 import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
 
 export const runtime = "nodejs";
@@ -26,13 +27,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 });
     }
 
-    // Run server-side NVIDIA NIM health diagnostic
-    const health = await NvidiaNimProvider.checkHealth();
-    return NextResponse.json(health, { status: health.chatCompletionAvailable ? 200 : 503 });
+    // Run health diagnostics for Gemini (Primary) and NVIDIA NIM (Fallback)
+    const [geminiHealth, nvidiaHealth] = await Promise.all([
+      GeminiProvider.checkHealth(),
+      NvidiaNimProvider.checkHealth(),
+    ]);
+
+    const isAvailable = geminiHealth.chatCompletionAvailable || nvidiaHealth.chatCompletionAvailable;
+
+    return NextResponse.json(
+      {
+        primaryProvider: geminiHealth,
+        fallbackProvider: nvidiaHealth,
+        activeProvider: geminiHealth.chatCompletionAvailable
+          ? "gemini"
+          : nvidiaHealth.chatCompletionAvailable
+          ? "nvidia-nim"
+          : "none",
+        isHealthy: isAvailable,
+      },
+      { status: isAvailable ? 200 : 503 }
+    );
   } catch (err: any) {
     return NextResponse.json(
       {
-        provider: "nvidia-nim",
         error: "Health check error",
         details: err?.message || String(err),
       },

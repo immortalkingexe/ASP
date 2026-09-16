@@ -19,7 +19,7 @@ export class AuthService {
       email: data.email,
       password: data.password,
       options: {
-        emailRedirectTo: `${siteUrl}/callback?redirectTo=/dashboard`,
+        emailRedirectTo: `${siteUrl}/auth/callback?redirectTo=/dashboard`,
         data: {
           full_name: data.fullName,
           avatar_url: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.fullName)}`,

@@ -1,10 +1,20 @@
+let hasLoggedSupabaseConfig = false;
+
 /**
  * Validates Supabase environment variables and returns sanitized configuration.
  * Prevents silent fallback failures when environment keys are missing or malformed.
  */
 export function getSupabaseEnv() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!hasLoggedSupabaseConfig) {
+    hasLoggedSupabaseConfig = true;
+    console.log(
+      `[CONFIG] NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl || "(NOT SET)"} | ANON_KEY: ${supabaseAnonKey ? `(SET, len=${supabaseAnonKey.length})` : "(NOT SET)"} | SERVICE_ROLE_KEY: ${serviceRoleKey ? `(SET, len=${serviceRoleKey.length})` : "(NOT SET)"}`
+    );
+  }
 
   const isUrlMissing = !supabaseUrl || supabaseUrl.includes("placeholder");
   const isKeyMissing = !supabaseAnonKey || supabaseAnonKey.includes("placeholder");

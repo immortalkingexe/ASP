@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
+import { AiFallbackService } from "@/services/ai/ai-fallback-service";
 
 export interface AIScheduleSuggestion {
   id: string;
@@ -121,7 +121,7 @@ ${sessionsContext || "None"}
 
 Please analyze these tasks and sessions, and generate optimal study session suggestions in structured JSON format.`;
 
-    const aiResult = await NvidiaNimProvider.completeJson<{ suggestions: AIScheduleSuggestion[] }>(
+    const { result: aiResult } = await AiFallbackService.completeJson<{ suggestions: AIScheduleSuggestion[] }>(
       userPrompt,
       systemPrompt
     );

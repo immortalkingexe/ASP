@@ -90,7 +90,7 @@ export const ROUTE_METADATA: Record<string, RouteMeta> = {
   [ROUTES.CHAT]: {
     path: ROUTES.CHAT,
     title: "AI Chat Assistant",
-    description: "Context-aware AI study assistant powered by Groq and RAG architecture.",
+    description: "Context-aware AI study assistant powered by NVIDIA NIM and RAG architecture.",
     isProtected: true,
   },
   [ROUTES.ANALYTICS]: {

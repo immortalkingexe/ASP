@@ -17,7 +17,7 @@
 | **Module 6** | Notebook & Page Management System | ✅ Complete | Hierarchical page tree, drag & drop, search, filters |
 | **Module 7** | Notion-Inspired Block-Based Note System | ✅ Complete | 21 block types, slash command menu, auto-save engine |
 | **Module 8** | Document Upload & Storage Infrastructure | ✅ Complete | Multi-format upload (PDF, DOCX, PPTX, TXT, MD), drag-and-drop queue |
-| **Module 9** | AI Knowledge Processing & Document Intelligence Pipeline | ✅ Complete | Groq API integration, text extraction/cleaning/chunking, metadata, embedding abstraction, RAG search preparation |
+| **Module 9** | AI Knowledge Processing & Document Intelligence Pipeline | ✅ Complete | NVIDIA NIM API integration (`meta/llama-3.3-70b-instruct`), text extraction/cleaning/chunking, metadata, embedding abstraction, RAG search preparation |
 
 ---
 
@@ -51,7 +51,7 @@
 
 ## 4. Primary AI & Database Services
 
-- `GroqProvider` — Groq API LLM integration (`llama-3.3-70b-versatile`, `qwen-2.5-72b`, `gemma2-9b-it`).
+- `NvidiaNimProvider` — NVIDIA NIM Hosted API LLM integration (`meta/llama-3.3-70b-instruct`).
 - `EmbeddingProvider` — Provider-agnostic embedding abstraction layer (OpenAI, Voyage, HuggingFace, LocalMock).
 - `TextExtractionService` — Extract raw text & structure from PDF, DOCX, PPTX, TXT, Markdown.
 - `TextCleaningService` — Normalize whitespace & repair hyphenation while preserving headings/code blocks/lists.
@@ -68,7 +68,7 @@
 - [x] RLS policies enforced on all 15 PostgreSQL tables including `document_chunks`.
 - [x] Environment variables validated via `getSupabaseEnv()`.
 - [x] SSR Middleware cookie preservation active.
-- [x] Groq API keys remain strictly server-side; non-exposed to frontend.
+- [x] NVIDIA API keys remain strictly server-side; non-exposed to frontend.
 - [x] Workspace `owner_id` validated strictly against `auth.users.id`.
 
 ---

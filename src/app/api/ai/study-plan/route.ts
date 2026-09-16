@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
+import { AiFallbackService } from "@/services/ai/ai-fallback-service";
 
 export const runtime = "nodejs";
 
@@ -46,15 +46,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Workspace access denied" }, { status: 403 });
     }
 
-    const apiKey = process.env.NVIDIA_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "NVIDIA_API_KEY is not configured on the server." },
-        { status: 500 }
-      );
-    }
-
-    const model = NvidiaNimProvider.getModel();
     const baseDate = startDate || new Date().toISOString().split("T")[0];
 
     // Filter incomplete tasks
@@ -107,46 +98,20 @@ DO NOT include any markdown code blocks, backticks, or natural language text out
 
     const userPrompt = `Student Task List:\n${tasksSummary}\n\nPlease generate the optimal study plan JSON.`;
 
-    // Call NVIDIA NIM API
-    const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 1500,
-      }),
-    });
+    const { result: planData } = await AiFallbackService.completeJson<any>(
+      userPrompt,
+      systemPrompt,
+      { maxTokens: 1500 }
+    );
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[NVIDIA NIM Study Plan Error] HTTP ${response.status}:`, errText);
-      return NextResponse.json({ error: "Failed to generate AI study plan." }, { status: response.status });
+    if (!planData) {
+      return NextResponse.json(
+        { error: "Failed to generate AI study plan. Please verify API configuration." },
+        { status: 502 }
+      );
     }
 
-    const resJson = await response.json();
-    const rawContent = resJson.choices?.[0]?.message?.content || "";
-
-    // Clean potential markdown backticks from raw content
-    const cleanedContent = rawContent.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-    try {
-      const planData = JSON.parse(cleanedContent);
-      return NextResponse.json(planData);
-    } catch (parseErr) {
-      console.error("[JSON Parse Error] Raw AI output was not valid JSON:", rawContent);
-      return NextResponse.json({
-        error: "AI response formatting error. Please try regenerating.",
-        rawContent,
-      }, { status: 502 });
-    }
+    return NextResponse.json(planData);
   } catch (err: any) {
     console.error("[AI Study Plan Exception]", err);
     return NextResponse.json({ error: err?.message || "Internal server error" }, { status: 500 });

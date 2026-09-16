@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
+import { AiFallbackService } from "@/services/ai/ai-fallback-service";
 
 export interface GeneratedQuizQuestionItem {
   question: string;
@@ -170,7 +170,7 @@ ${truncatedContent}
 
 Generate EXACTLY ${targetCount} questions in JSON format.`;
 
-    const aiResult = await NvidiaNimProvider.completeJson<GeneratedQuizPayload>(
+    const { result: aiResult } = await AiFallbackService.completeJson<GeneratedQuizPayload>(
       userPrompt,
       systemPrompt,
       { maxTokens }
@@ -233,7 +233,7 @@ ${truncatedContent}
 
 Return EXACTLY ${missingCount} additional questions in JSON format.`;
 
-      const retryResult = await NvidiaNimProvider.completeJson<GeneratedQuizPayload>(
+      const { result: retryResult } = await AiFallbackService.completeJson<GeneratedQuizPayload>(
         retryUserPrompt,
         systemPrompt,
         { maxTokens: Math.max(2000, missingCount * 220) }

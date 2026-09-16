@@ -20,7 +20,7 @@ export async function updateSession(request: NextRequest) {
           request,
         });
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
+          supabaseResponse.cookies.set(name, value, { ...options, path: "/" })
         );
       },
     },
@@ -39,7 +39,7 @@ export async function updateSession(request: NextRequest) {
     const response = NextResponse.redirect(url);
     // Copy cookies updated by Supabase SSR to the redirect response
     supabaseResponse.cookies.getAll().forEach((cookie) => {
-      response.cookies.set(cookie.name, cookie.value);
+      response.cookies.set(cookie.name, cookie.value, { path: "/" });
     });
     return response;
   };

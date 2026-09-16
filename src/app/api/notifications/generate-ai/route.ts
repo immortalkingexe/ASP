@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
+import { AiFallbackService } from "@/services/ai/ai-fallback-service";
 import { NotificationsService } from "@/services/db/notifications-service";
 
 export async function POST(req: NextRequest) {
@@ -47,7 +47,7 @@ ${activeTasks.map((t: any) => `- Task: "${t.title}", Priority: ${t.priority}, Du
 
 Generate one intelligent workload reminder in JSON.`;
 
-    const aiResult = await NvidiaNimProvider.completeJson<{ title: string; message: string }>(
+    const { result: aiResult } = await AiFallbackService.completeJson<{ title: string; message: string }>(
       userPrompt,
       systemPrompt
     );

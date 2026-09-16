@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { NvidiaNimProvider } from "@/services/ai/nvidia-nim-provider";
+import { AiFallbackService } from "@/services/ai/ai-fallback-service";
 
 export interface GeneratedFlashcardItem {
   front: string;
@@ -154,7 +154,7 @@ ${truncatedContent}
 
 Generate EXACTLY ${targetCount} structured flashcards in JSON format based on this material.`;
 
-    const aiResult = await NvidiaNimProvider.completeJson<{ cards: GeneratedFlashcardItem[] }>(
+    const { result: aiResult } = await AiFallbackService.completeJson<{ cards: GeneratedFlashcardItem[] }>(
       userPrompt,
       systemPrompt,
       { maxTokens }
@@ -204,7 +204,7 @@ ${truncatedContent}
 
 Return EXACTLY ${missingCount} additional flashcards in JSON format.`;
 
-      const retryResult = await NvidiaNimProvider.completeJson<{ cards: GeneratedFlashcardItem[] }>(
+      const { result: retryResult } = await AiFallbackService.completeJson<{ cards: GeneratedFlashcardItem[] }>(
         retryUserPrompt,
         systemPrompt,
         { maxTokens: Math.max(1500, missingCount * 180) }
